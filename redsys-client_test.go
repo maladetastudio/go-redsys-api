@@ -272,7 +272,7 @@ func TestMerchantParametersRequest_PayGold(t *testing.T) {
 
 // TestDecodeMerchantParameters_PayGoldResponse decodes a PayGold link
 // generation response shaped after Redsys's own documented example, checking
-// UrlPago2Fases (the payment link) decodes correctly. Ds_AuthorisationCode is
+// URLPago2Fases (the payment link) decodes correctly. Ds_AuthorisationCode is
 // blank in this example because the link has been generated but not yet paid.
 func TestDecodeMerchantParameters_PayGoldResponse(t *testing.T) {
 	redsys := Redsys{}
@@ -282,7 +282,7 @@ func TestDecodeMerchantParameters_PayGoldResponse(t *testing.T) {
 	result, err := redsys.TryDecodeMerchantParameters(encoded)
 
 	assert.NoError(t, err)
-	assert.Equal(t, "http://sis-d.redsys.es/sis/p2f?t=B8792FD81101EDE46101FC154918EFDD0FDE4CD7", result.UrlPago2Fases)
+	assert.Equal(t, "http://sis-d.redsys.es/sis/p2f?t=B8792FD81101EDE46101FC154918EFDD0FDE4CD7", result.URLPago2Fases)
 	assert.Equal(t, "F", result.TransactionType)
 	assert.Equal(t, "", result.AuthorisationCode)
 }

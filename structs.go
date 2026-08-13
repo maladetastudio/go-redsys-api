@@ -35,12 +35,12 @@ type MerchantParametersResponse struct {
 	CardBrand  string `json:"Ds_Card_Brand,omitempty"`
 	ExpiryDate string `json:"Ds_ExpiryDate,omitempty"`
 
-	// UrlPago2Fases is the PayGold payment link generated for the customer
+	// URLPago2Fases is the PayGold payment link generated for the customer
 	// (only present when MerchantTransactionType was TransactionTypePayGold).
 	// The Ds_AuthorisationCode/Ds_Response on this same response describe the
 	// link-generation call, not a completed payment - the link hasn't been
 	// paid yet.
-	UrlPago2Fases string `json:"Ds_UrlPago2Fases,omitempty"`
+	URLPago2Fases string `json:"Ds_UrlPago2Fases,omitempty"`
 
 	// MerchantIdentifier is the generated card reference, present when the
 	// request asked for one (see MerchantIdentifier on the request struct).
@@ -77,7 +77,7 @@ type MerchantParametersRequest struct {
 	// TransactionTypePayGold ("F"), sent via REST (trataPeticionREST), not
 	// the Redirection flow. Redsys itself sends the SMS/email containing the
 	// link when the corresponding contact field is set; leave both empty to
-	// only generate the link (MerchantParametersResponse.UrlPago2Fases) and
+	// only generate the link (MerchantParametersResponse.URLPago2Fases) and
 	// distribute it yourself through some other channel (e.g. WhatsApp,
 	// which Redsys does not send via this API - only via its Admin Portal).
 	MerchantCustomerMobile  string `json:"Ds_Merchant_Customer_Mobile,omitempty"`
