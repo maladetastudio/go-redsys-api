@@ -38,7 +38,7 @@ func (r *Redsys) CreateMerchantParameters(data *MerchantParametersRequest) strin
 // DecodeMerchantParameters Decode a response into a MerchantParametersResponse
 func (r *Redsys) DecodeMerchantParameters(data string) MerchantParametersResponse {
 	merchantParameters := MerchantParametersResponse{}
-	decodedB64, _ := base64.URLEncoding.DecodeString(data)
+	decodedB64, _ := decodeBase64Either(data)
 	json.Unmarshal(decodedB64, &merchantParameters)
 	unescapeInPlace(&merchantParameters)
 	return merchantParameters
@@ -50,7 +50,7 @@ func (r *Redsys) DecodeMerchantParameters(data string) MerchantParametersRespons
 func (r *Redsys) TryDecodeMerchantParameters(data string) (MerchantParametersResponse, error) {
 	merchantParameters := MerchantParametersResponse{}
 
-	decodedB64, err := base64.URLEncoding.DecodeString(data)
+	decodedB64, err := decodeBase64Either(data)
 	if err != nil {
 		return MerchantParametersResponse{}, fmt.Errorf("redsys: decode base64: %w", err)
 	}
@@ -61,6 +61,24 @@ func (r *Redsys) TryDecodeMerchantParameters(data string) (MerchantParametersRes
 
 	unescapeInPlace(&merchantParameters)
 	return merchantParameters, nil
+}
+
+// decodeBase64Either decodes data as base64url first, falling back to
+// standard base64. Redsys documents Ds_MerchantParameters as Base64URL for
+// what a merchant sends, but real inbound notifications have been observed
+// using the standard alphabet - and since a ~300+ char base64 string almost
+// always contains a '+' or '/' (or '-'/'_'), guessing wrong reliably breaks
+// decoding rather than occasionally. This only affects parsing the JSON
+// fields (used here to extract Ds_Order for key diversification); it must
+// never be used on the string that gets signed/verified - Redsys's own docs
+// are explicit that the signature covers the base64 parameter exactly as
+// transmitted, undecoded.
+func decodeBase64Either(data string) ([]byte, error) {
+	if decoded, err := base64.URLEncoding.DecodeString(data); err == nil {
+		return decoded, nil
+	}
+
+	return base64.StdEncoding.DecodeString(data)
 }
 
 // unescapeInPlace reverses Redsys's per-field percent-encoding (seen on fields

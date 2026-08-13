@@ -2,6 +2,7 @@ package redsys
 
 import (
 	"encoding/base64"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -201,4 +202,32 @@ func TestMerchantParametersRequest_XPayFieldsOmittedWhenEmpty(t *testing.T) {
 	assert.Contains(t, string(decoded), `"DS_XPAYDATA":"encrypted-token"`)
 	assert.Contains(t, string(decoded), `"DS_XPAYTYPE":"Apple"`)
 	assert.Contains(t, string(decoded), `"DS_XPAYORIGEN":"WEB"`)
+}
+
+// TestDecodeMerchantParameters_AcceptsStandardBase64 covers a real gap: Redsys
+// documents Ds_MerchantParameters as Base64URL, but inbound notifications have
+// been observed using the standard alphabet ('+'/'/' instead of '-'/'_').
+// Since a base64 string of realistic length (~300+ chars) almost always
+// contains one of those characters, guessing the wrong alphabet doesn't fail
+// occasionally - it fails on nearly every real payload. This fixture is
+// base64.StdEncoding-encoded and deliberately contains both '+' and '/', so a
+// URLEncoding-only decode (the previous behavior) cannot parse it.
+func TestDecodeMerchantParameters_AcceptsStandardBase64(t *testing.T) {
+	const jsonPayload = `{"Ds_Order": "k9k>9d?ai", "Ds_Response": "0000", "Ds_Amount": "999999999999999999"}`
+	stdEncoded := base64.StdEncoding.EncodeToString([]byte(jsonPayload))
+
+	if !strings.Contains(stdEncoded, "+") && !strings.Contains(stdEncoded, "/") {
+		t.Fatal("fixture must exercise the standard base64 alphabet")
+	}
+
+	_, urlDecodeErr := base64.URLEncoding.DecodeString(stdEncoded)
+	assert.Error(t, urlDecodeErr, "fixture must be unparseable as base64url, or this test proves nothing")
+
+	redsys := Redsys{}
+	result, err := redsys.TryDecodeMerchantParameters(stdEncoded)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "k9k>9d?ai", result.Order)
+	assert.Equal(t, "0000", result.Response)
+	assert.Equal(t, "999999999999999999", result.Amount)
 }
