@@ -32,7 +32,11 @@ func TestSHA256Algorithm(t *testing.T) {
 
 func TestMechantEncodingAndDecoding(t *testing.T) {
 	const PARAMS = "eyJEc19NZXJjaGFudF9NZXJjaGFudENvZGUiOiI5OTkwMDg4ODEiLCJEc19NZXJjaGFudF9UZXJtaW5hbCI6Ijg3MSIsIkRzX01lcmNoYW50X1RyYW5zYWN0aW9uVHlwZSI6IjAiLCJEc19NZXJjaGFudF9BbW91bnQiOiIxNDUiLCJEc19NZXJjaGFudF9DdXJyZW5jeSI6Ijk3OCIsIkRzX01lcmNoYW50X09yZGVyIjoiMSJ9"
-	const DS_MERCHANT_PARAMETERS = "eyJEc19EYXRlIjoiMDklMkYxMSUyRjIwMTUiLCJEc19Ib3VyIjoiMTglM0EwMyIsIkRzX1NlY3VyZVBheW1lbnQiOiIwIiwiRHNfQ2FyZF9Db3VudHJ5IjoiNzI0IiwiRHNfQW1vdW50IjoiMTQ1IiwiRHNfQ3VycmVuY3kiOiI5NzgiLCJEc19PcmRlciI6IjAwNjkiLCJEc19NZXJjaGFudENvZGUiOiI5OTkwMDg4ODEiLCJEc19UZXJtaW5hbCI6Ijg3MSIsIkRzX1Jlc3BvbnNlIjoiMDAwMCIsIkRzX01lcmNoYW50RGF0YSI6IiIsIkRzX1RyYW5zYWN0aW9uVHlwZSI6IjAiLCJEc19Db25zdW1lckxhbmd1YWdlIjoiMSIsIkRzX0F1dGhvcmlzYXRpb25Db2RlIjoiMDgyMTUwIn0="
+	// Uses Ds_Language, not Ds_ConsumerLanguage: confirmed against two
+	// independent real Redsys payloads (a captured production refund
+	// response, and Redsys's own PayGold REST documentation) that this is
+	// the field name Redsys actually sends.
+	const DS_MERCHANT_PARAMETERS = "eyJEc19EYXRlIjoiMDklMkYxMSUyRjIwMTUiLCJEc19Ib3VyIjoiMTglM0EwMyIsIkRzX1NlY3VyZVBheW1lbnQiOiIwIiwiRHNfQ2FyZF9Db3VudHJ5IjoiNzI0IiwiRHNfQW1vdW50IjoiMTQ1IiwiRHNfQ3VycmVuY3kiOiI5NzgiLCJEc19PcmRlciI6IjAwNjkiLCJEc19NZXJjaGFudENvZGUiOiI5OTkwMDg4ODEiLCJEc19UZXJtaW5hbCI6Ijg3MSIsIkRzX1Jlc3BvbnNlIjoiMDAwMCIsIkRzX01lcmNoYW50RGF0YSI6IiIsIkRzX1RyYW5zYWN0aW9uVHlwZSI6IjAiLCJEc19MYW5ndWFnZSI6IjEiLCJEc19BdXRob3Jpc2F0aW9uQ29kZSI6IjA4MjE1MCJ9"
 
 	merchantParamsRequest := &MerchantParametersRequest{
 		MerchantAmount:          "145",
@@ -106,8 +110,8 @@ func TestMerchantSignature(t *testing.T) {
 	const SIGNATURE = "FyetupQY42l5OuaBpazgN//z9veH6txWsUiYIAKE4FY="
 	assert.Equal(t, SIGNATURE, redsys.CreateMerchantSignature(merchantParamsRequest), "Create Merchant Signature "+SIGNATURE)
 
-	const RESPONSE_DS_MERCHANT_PARAMETERS = "eyJEc19EYXRlIjoiMDklMkYxMSUyRjIwMTUiLCJEc19Ib3VyIjoiMTglM0EwMyIsIkRzX1NlY3VyZVBheW1lbnQiOiIwIiwiRHNfQ2FyZF9Db3VudHJ5IjoiNzI0IiwiRHNfQW1vdW50IjoiMTQ1IiwiRHNfQ3VycmVuY3kiOiI5NzgiLCJEc19PcmRlciI6IjAwNjkiLCJEc19NZXJjaGFudENvZGUiOiI5OTkwMDg4ODEiLCJEc19UZXJtaW5hbCI6Ijg3MSIsIkRzX1Jlc3BvbnNlIjoiMDAwMCIsIkRzX01lcmNoYW50RGF0YSI6IiIsIkRzX1RyYW5zYWN0aW9uVHlwZSI6IjAiLCJEc19Db25zdW1lckxhbmd1YWdlIjoiMSIsIkRzX0F1dGhvcmlzYXRpb25Db2RlIjoiMDgyMTUwIn0="
-	const RESPONSE_DS_SIGNATURE = "6DVpRPAPoChZh2cgaWnLqlfFsKeXdRfAO_tz-UrxJcU="
+	const RESPONSE_DS_MERCHANT_PARAMETERS = "eyJEc19EYXRlIjoiMDklMkYxMSUyRjIwMTUiLCJEc19Ib3VyIjoiMTglM0EwMyIsIkRzX1NlY3VyZVBheW1lbnQiOiIwIiwiRHNfQ2FyZF9Db3VudHJ5IjoiNzI0IiwiRHNfQW1vdW50IjoiMTQ1IiwiRHNfQ3VycmVuY3kiOiI5NzgiLCJEc19PcmRlciI6IjAwNjkiLCJEc19NZXJjaGFudENvZGUiOiI5OTkwMDg4ODEiLCJEc19UZXJtaW5hbCI6Ijg3MSIsIkRzX1Jlc3BvbnNlIjoiMDAwMCIsIkRzX01lcmNoYW50RGF0YSI6IiIsIkRzX1RyYW5zYWN0aW9uVHlwZSI6IjAiLCJEc19MYW5ndWFnZSI6IjEiLCJEc19BdXRob3Jpc2F0aW9uQ29kZSI6IjA4MjE1MCJ9"
+	const RESPONSE_DS_SIGNATURE = "qhEoh2tAh4HowkMaEvfga-axsK0ytFFwv5YZ6Lx6Rjk="
 	assert.Equal(t, RESPONSE_DS_SIGNATURE, redsys.CreateMerchantSignatureNotif(RESPONSE_DS_MERCHANT_PARAMETERS), "Create Merchant Signature Notification "+RESPONSE_DS_SIGNATURE)
 
 	assert.Equal(t, bool(true), redsys.MerchantSignatureIsValid(RESPONSE_DS_SIGNATURE, RESPONSE_DS_SIGNATURE), "Create Merchant Signature Notification")
@@ -281,4 +285,26 @@ func TestDecodeMerchantParameters_PayGoldResponse(t *testing.T) {
 	assert.Equal(t, "http://sis-d.redsys.es/sis/p2f?t=B8792FD81101EDE46101FC154918EFDD0FDE4CD7", result.UrlPago2Fases)
 	assert.Equal(t, "F", result.TransactionType)
 	assert.Equal(t, "", result.AuthorisationCode)
+}
+
+// TestDecodeMerchantParameters_PayGoldPaidNotification decodes the online
+// notification Redsys sends once a customer actually pays a PayGold link,
+// verbatim from Redsys's PayGold-via-REST documentation. Confirms
+// Ds_CardNumber/Ds_Card_Brand/Ds_ExpiryDate (missing before this fix) and
+// Ds_Language (previously mistagged as Ds_ConsumerLanguage) all decode.
+func TestDecodeMerchantParameters_PayGoldPaidNotification(t *testing.T) {
+	redsys := Redsys{}
+	payload := `{"Ds_Amount":"145","Ds_AuthorisationCode":"630117","Ds_CardNumber":"454881******0003","Ds_Card_Brand":"1","Ds_Card_Country":"724","Ds_Currency":"978","Ds_ExpiryDate":"3912","Ds_Language":"1","Ds_MerchantCode":"999008881","Ds_Merchant_Identifier":"01903f9b923895767228066924f23b5892e88fdb","Ds_Order":"0281WjRq","Ds_Response":"0000","Ds_SecurePayment":"0","Ds_Terminal":"1","Ds_TransactionType":"F"}`
+	encoded := base64.StdEncoding.EncodeToString([]byte(payload))
+
+	result, err := redsys.TryDecodeMerchantParameters(encoded)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "0000", result.Response)
+	assert.Equal(t, "630117", result.AuthorisationCode)
+	assert.Equal(t, "454881******0003", result.CardNumber)
+	assert.Equal(t, "1", result.CardBrand)
+	assert.Equal(t, "3912", result.ExpiryDate)
+	assert.Equal(t, "1", result.ConsumerLanguage)
+	assert.Equal(t, "01903f9b923895767228066924f23b5892e88fdb", result.MerchantIdentifier)
 }

@@ -14,10 +14,26 @@ type MerchantParametersResponse struct {
 	Response           string `json:"Ds_Response"`
 	MerchantData       string `json:"Ds_MerchantData"`
 	TransactionType    string `json:"Ds_TransactionType"`
-	ConsumerLanguage   string `json:"Ds_ConsumerLanguage,omitempty"`
 	AuthorisationCode  string `json:"Ds_AuthorisationCode,omitempty"`
 	ProcessedPayMethod string `json:"Ds_ProcessedPayMethod,omitempty"`
 	ErrorCode          string `json:"Ds_ErrorCode,omitempty"`
+
+	// ConsumerLanguage is tagged Ds_Language, not the "Ds_ConsumerLanguage"
+	// this field was previously (and incorrectly) tagged as - confirmed
+	// against two independent real Redsys payloads (a captured production
+	// refund response, and Redsys's own PayGold REST documentation example).
+	// The old tag meant this field silently decoded empty for every real
+	// response; the field name is kept for API compatibility.
+	ConsumerLanguage string `json:"Ds_Language,omitempty"`
+
+	// CardNumber, CardBrand, and ExpiryDate are populated on a completed
+	// authorization's response/notification (masked card number, brand
+	// code, and expiry respectively) - confirmed against Redsys's PayGold
+	// REST documentation, which shows them on the online notification sent
+	// once a customer pays a generated link.
+	CardNumber string `json:"Ds_CardNumber,omitempty"`
+	CardBrand  string `json:"Ds_Card_Brand,omitempty"`
+	ExpiryDate string `json:"Ds_ExpiryDate,omitempty"`
 
 	// UrlPago2Fases is the PayGold payment link generated for the customer
 	// (only present when MerchantTransactionType was TransactionTypePayGold).
