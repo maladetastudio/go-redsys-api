@@ -13,6 +13,11 @@ import (
 // produced by CreateMerchantSignature512 / CreateMerchantSignatureNotif512.
 const SignatureVersionSHA512 = "HMAC_SHA512_V2"
 
+// TransactionTypePayGold is the Ds_Merchant_TransactionType value that
+// requests a PayGold payment link via a REST request to trataPeticionREST,
+// instead of a normal authorization.
+const TransactionTypePayGold = "F"
+
 // Redsys Init this struct with your key to operate with the corresponding functions
 type Redsys struct {
 	Key string

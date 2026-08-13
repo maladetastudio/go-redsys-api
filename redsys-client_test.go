@@ -231,3 +231,54 @@ func TestDecodeMerchantParameters_AcceptsStandardBase64(t *testing.T) {
 	assert.Equal(t, "0000", result.Response)
 	assert.Equal(t, "999999999999999999", result.Amount)
 }
+
+// TestMerchantParametersRequest_PayGold covers the fields confirmed against
+// Redsys's PayGold-vía-REST documentation: https://pagosonline.redsys.es/desarrolladores-inicio/documentacion-tipos-de-integracion/desarrolladores-paygold/paygold-rest/
+func TestMerchantParametersRequest_PayGold(t *testing.T) {
+	redsys := Redsys{}
+	params := &MerchantParametersRequest{
+		MerchantAmount:          "145",
+		MerchantOrder:           "1",
+		MerchantMerchantCode:    "999008881",
+		MerchantTransactionType: TransactionTypePayGold,
+	}
+
+	decoded, err := base64.URLEncoding.DecodeString(redsys.CreateMerchantParameters(params))
+	assert.NoError(t, err)
+	assert.Contains(t, string(decoded), `"Ds_Merchant_TransactionType":"F"`)
+	assert.NotContains(t, string(decoded), "Ds_Merchant_Customer_Mobile")
+	assert.NotContains(t, string(decoded), "Ds_Merchant_Identifier")
+
+	params.MerchantCustomerMobile = "666555444"
+	params.MerchantCustomerMail = "cliente@example.com"
+	params.MerchantP2FExpiryDate = "2014-12-26-16.31.35.318"
+	params.MerchantCustomerSMSText = "Pay here: @URL@"
+	params.MerchantP2FXMLData = "<nombreComprador>Jane Doe</nombreComprador>"
+	params.MerchantIdentifier = "REQUIRED"
+
+	decoded, err = base64.URLEncoding.DecodeString(redsys.CreateMerchantParameters(params))
+	assert.NoError(t, err)
+	assert.Contains(t, string(decoded), `"Ds_Merchant_Customer_Mobile":"666555444"`)
+	assert.Contains(t, string(decoded), `"Ds_Merchant_Customer_Mail":"cliente@example.com"`)
+	assert.Contains(t, string(decoded), `"Ds_Merchant_P2F_ExpiryDate":"2014-12-26-16.31.35.318"`)
+	assert.Contains(t, string(decoded), `"Ds_Merchant_Customer_Sms_Text":"Pay here: @URL@"`)
+	assert.Contains(t, string(decoded), `"Ds_Merchant_P2F_XMLData"`)
+	assert.Contains(t, string(decoded), `"Ds_Merchant_Identifier":"REQUIRED"`)
+}
+
+// TestDecodeMerchantParameters_PayGoldResponse decodes a PayGold link
+// generation response shaped after Redsys's own documented example, checking
+// UrlPago2Fases (the payment link) decodes correctly. Ds_AuthorisationCode is
+// blank in this example because the link has been generated but not yet paid.
+func TestDecodeMerchantParameters_PayGoldResponse(t *testing.T) {
+	redsys := Redsys{}
+	payload := `{"Ds_Amount":"145","Ds_AuthorisationCode":"","Ds_Currency":"978","Ds_MerchantCode":"999008881","Ds_MerchantData":"","Ds_Order":"1453971987","Ds_Response":"9998","Ds_SecurePayment":"0","Ds_Terminal":"1","Ds_TransactionType":"F","Ds_UrlPago2Fases":"http://sis-d.redsys.es/sis/p2f?t=B8792FD81101EDE46101FC154918EFDD0FDE4CD7"}`
+	encoded := base64.StdEncoding.EncodeToString([]byte(payload))
+
+	result, err := redsys.TryDecodeMerchantParameters(encoded)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "http://sis-d.redsys.es/sis/p2f?t=B8792FD81101EDE46101FC154918EFDD0FDE4CD7", result.UrlPago2Fases)
+	assert.Equal(t, "F", result.TransactionType)
+	assert.Equal(t, "", result.AuthorisationCode)
+}

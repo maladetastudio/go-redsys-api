@@ -18,6 +18,17 @@ type MerchantParametersResponse struct {
 	AuthorisationCode  string `json:"Ds_AuthorisationCode,omitempty"`
 	ProcessedPayMethod string `json:"Ds_ProcessedPayMethod,omitempty"`
 	ErrorCode          string `json:"Ds_ErrorCode,omitempty"`
+
+	// UrlPago2Fases is the PayGold payment link generated for the customer
+	// (only present when MerchantTransactionType was TransactionTypePayGold).
+	// The Ds_AuthorisationCode/Ds_Response on this same response describe the
+	// link-generation call, not a completed payment - the link hasn't been
+	// paid yet.
+	UrlPago2Fases string `json:"Ds_UrlPago2Fases,omitempty"`
+
+	// MerchantIdentifier is the generated card reference, present when the
+	// request asked for one (see MerchantIdentifier on the request struct).
+	MerchantIdentifier string `json:"Ds_Merchant_Identifier,omitempty"`
 }
 
 // MerchantParametersRequest struct to construct Redsys API requests
@@ -45,4 +56,23 @@ type MerchantParametersRequest struct {
 	XPayData   string `json:"DS_XPAYDATA,omitempty"`
 	XPayType   string `json:"DS_XPAYTYPE,omitempty"`
 	XPayOrigen string `json:"DS_XPAYORIGEN,omitempty"`
+
+	// PayGold fields - only meaningful when MerchantTransactionType is
+	// TransactionTypePayGold ("F"), sent via REST (trataPeticionREST), not
+	// the Redirection flow. Redsys itself sends the SMS/email containing the
+	// link when the corresponding contact field is set; leave both empty to
+	// only generate the link (MerchantParametersResponse.UrlPago2Fases) and
+	// distribute it yourself through some other channel (e.g. WhatsApp,
+	// which Redsys does not send via this API - only via its Admin Portal).
+	MerchantCustomerMobile  string `json:"Ds_Merchant_Customer_Mobile,omitempty"`
+	MerchantCustomerMail    string `json:"Ds_Merchant_Customer_Mail,omitempty"`
+	MerchantP2FExpiryDate   string `json:"Ds_Merchant_P2F_ExpiryDate,omitempty"`
+	MerchantCustomerSMSText string `json:"Ds_Merchant_Customer_Sms_Text,omitempty"`
+	MerchantP2FXMLData      string `json:"Ds_Merchant_P2F_XMLData,omitempty"`
+
+	// MerchantIdentifier requests (set to "REQUIRED") generation of a card
+	// reference for the card used to pay a PayGold link; the reference comes
+	// back in the online notification's MerchantIdentifier field, which
+	// requires notifications to be configured in the Admin Portal.
+	MerchantIdentifier string `json:"Ds_Merchant_Identifier,omitempty"`
 }
