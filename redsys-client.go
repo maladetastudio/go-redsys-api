@@ -18,7 +18,15 @@ const SignatureVersionSHA512 = "HMAC_SHA512_V2"
 // instead of a normal authorization.
 const TransactionTypePayGold = "F"
 
-// Redsys Init this struct with your key to operate with the corresponding functions
+// Redsys signs and verifies Ds_MerchantParameters payloads using a merchant's
+// terminal key. Key is the base64-encoded key Redsys's Admin Portal gives you
+// for a merchant code + terminal pair. The zero value is usable directly
+// (Redsys{Key: "..."}); NewRedsys additionally validates the key up front,
+// trading a possible later panic for an early, explicit error.
+//
+// A single Redsys value works for both signature versions - which one you
+// get depends only on which method you call (CreateMerchantSignature512 vs
+// the legacy CreateMerchantSignature).
 type Redsys struct {
 	Key string
 }
@@ -34,13 +42,19 @@ func NewRedsys(key string) (*Redsys, error) {
 	return &Redsys{Key: key}, nil
 }
 
-// CreateMerchantParameters Return a string corresponding to a marshalled MerchantParametersRequest
+// CreateMerchantParameters marshals data to JSON and base64url-encodes it,
+// ready to send as Ds_MerchantParameters. Sign the returned string with
+// CreateMerchantSignature512 (or CreateMerchantSignature for the legacy
+// scheme) to get the accompanying Ds_Signature.
 func (r *Redsys) CreateMerchantParameters(data *MerchantParametersRequest) string {
 	merchantMarshalledParams, _ := json.Marshal(data)
 	return base64.URLEncoding.EncodeToString(merchantMarshalledParams)
 }
 
-// DecodeMerchantParameters Decode a response into a MerchantParametersResponse
+// DecodeMerchantParameters decodes a Ds_MerchantParameters payload (from a
+// response or an online notification) into a MerchantParametersResponse.
+// Decode/unmarshal errors are swallowed, silently returning a zero-value
+// response - use TryDecodeMerchantParameters when you need to detect them.
 func (r *Redsys) DecodeMerchantParameters(data string) MerchantParametersResponse {
 	merchantParameters := MerchantParametersResponse{}
 	decodedB64, _ := decodeBase64Either(data)
@@ -105,7 +119,11 @@ func unescapeInPlace(m *MerchantParametersResponse) {
 	}
 }
 
-// CreateMerchantSignature generates a merchant signature from MerchantParametersRequest
+// CreateMerchantSignature generates a merchant signature from
+// MerchantParametersRequest using the legacy Redsys signing standard
+// (3DES key diversification + HMAC-SHA256, Ds_SignatureVersion
+// HMAC_SHA256_V1). Prefer CreateMerchantSignature512 for new integrations;
+// this is kept for merchants not yet migrated to HMAC_SHA512_V2.
 func (r *Redsys) CreateMerchantSignature(data *MerchantParametersRequest) string {
 	stringMerchantParameters := r.CreateMerchantParameters(data)
 
@@ -115,7 +133,10 @@ func (r *Redsys) CreateMerchantSignature(data *MerchantParametersRequest) string
 	return r.mac256(stringMerchantParameters, encrypted)
 }
 
-// CreateMerchantSignatureNotif generates a signature for MerchantParametersResponse representing string
+// CreateMerchantSignatureNotif generates the legacy HMAC_SHA256_V1 signature
+// for a MerchantParametersResponse-representing string (a response or online
+// notification's Ds_MerchantParameters), for verification against a received
+// Ds_Signature via MerchantSignatureIsValid.
 func (r *Redsys) CreateMerchantSignatureNotif(data string) string {
 	merchantParametersResponse := r.DecodeMerchantParameters(data)
 
@@ -127,7 +148,11 @@ func (r *Redsys) CreateMerchantSignatureNotif(data string) string {
 	return base64.URLEncoding.EncodeToString(decodedMac)
 }
 
-// MerchantSignatureIsValid checks that two hmacs are equal
+// MerchantSignatureIsValid reports whether a received Ds_Signature matches
+// one you computed (via CreateMerchantSignatureNotif or
+// CreateMerchantSignatureNotif512, matching whichever Ds_SignatureVersion the
+// sender used), using a constant-time comparison. Order of arguments does
+// not matter.
 func (r *Redsys) MerchantSignatureIsValid(mac1 string, mac2 string) bool {
 	return hmac.Equal([]byte(mac1), []byte(mac2))
 }

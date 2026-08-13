@@ -274,6 +274,33 @@ func TestMerchantParametersRequest_PayGold(t *testing.T) {
 // generation response shaped after Redsys's own documented example, checking
 // URLPago2Fases (the payment link) decodes correctly. Ds_AuthorisationCode is
 // blank in this example because the link has been generated but not yet paid.
+// TestMerchantParametersRequest_InSite covers the InSite operation-id field
+// used to finalize an InSite payment via a REST request: the field is only
+// present in the encoded payload when set (an InSite REST call needs it, a
+// plain authorization/refund/PayGold call does not), and signing goes
+// through the same CreateMerchantSignature512 path as every other request.
+func TestMerchantParametersRequest_InSite(t *testing.T) {
+	redsys := Redsys{}
+	params := &MerchantParametersRequest{
+		MerchantAmount:          "145",
+		MerchantOrder:           "1",
+		MerchantMerchantCode:    "999008881",
+		MerchantCurrency:        "978",
+		MerchantTerminal:        "1",
+		MerchantTransactionType: "0",
+	}
+
+	decoded, err := base64.URLEncoding.DecodeString(redsys.CreateMerchantParameters(params))
+	assert.NoError(t, err)
+	assert.NotContains(t, string(decoded), "DS_MERCHANT_IDOPER")
+
+	params.MerchantIdOper = "0123456789abcdef0123456789abcdef01234567"
+
+	decoded, err = base64.URLEncoding.DecodeString(redsys.CreateMerchantParameters(params))
+	assert.NoError(t, err)
+	assert.Contains(t, string(decoded), `"DS_MERCHANT_IDOPER":"0123456789abcdef0123456789abcdef01234567"`)
+}
+
 func TestDecodeMerchantParameters_PayGoldResponse(t *testing.T) {
 	redsys := Redsys{}
 	payload := `{"Ds_Amount":"145","Ds_AuthorisationCode":"","Ds_Currency":"978","Ds_MerchantCode":"999008881","Ds_MerchantData":"","Ds_Order":"1453971987","Ds_Response":"9998","Ds_SecurePayment":"0","Ds_Terminal":"1","Ds_TransactionType":"F","Ds_UrlPago2Fases":"http://sis-d.redsys.es/sis/p2f?t=B8792FD81101EDE46101FC154918EFDD0FDE4CD7"}`

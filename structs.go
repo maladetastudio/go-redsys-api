@@ -1,6 +1,9 @@
 package redsys
 
-// MerchantParametersResponse struct to read Redsys API responses
+// MerchantParametersResponse holds the decoded fields of a Ds_MerchantParameters
+// payload Redsys sends back — either as a synchronous response (Redirection's
+// return leg, or a REST call's reply) or as an asynchronous online
+// notification. Decode one with DecodeMerchantParameters/TryDecodeMerchantParameters.
 type MerchantParametersResponse struct {
 	Date               string `json:"Ds_Date"`
 	Hour               string `json:"Ds_Hour"`
@@ -47,7 +50,12 @@ type MerchantParametersResponse struct {
 	MerchantIdentifier string `json:"Ds_Merchant_Identifier,omitempty"`
 }
 
-// MerchantParametersRequest struct to construct Redsys API requests
+// MerchantParametersRequest holds the fields a merchant sends to Redsys.
+// CreateMerchantParameters marshals it to JSON and base64url-encodes it into
+// Ds_MerchantParameters; CreateMerchantSignature512 (or the legacy
+// CreateMerchantSignature) signs the result into Ds_Signature. Which fields
+// matter depends on the integration type and operation - see the package
+// doc comment (doc.go) for a flow-by-flow breakdown.
 type MerchantParametersRequest struct {
 	// Optional fields are tagged with omitempty
 	MerchantMerchantCode       string `json:"Ds_Merchant_MerchantCode"`
@@ -91,4 +99,24 @@ type MerchantParametersRequest struct {
 	// back in the online notification's MerchantIdentifier field, which
 	// requires notifications to be configured in the Admin Portal.
 	MerchantIdentifier string `json:"Ds_Merchant_Identifier,omitempty"`
+
+	// MerchantIdOper is the InSite integration's operation identifier
+	// (DS_MERCHANT_IDOPER, per Redsys's inSite documentation). Card data for
+	// an InSite payment is entered into iframes served by Redsys's own JS
+	// library (redsysV3.js), embedded on the merchant's page - the
+	// merchant's JS/DOM/server never receive the PAN/CVV, only this opaque
+	// operation ID, valid for 30 minutes. Set this field (alongside the
+	// usual Ds_Merchant_Amount/Order/Currency/MerchantCode/Terminal and a
+	// standard authorization Ds_Merchant_TransactionType) when finalizing an
+	// InSite payment via a REST request to trataPeticionREST, the same REST
+	// mechanism used by PayGold/refunds elsewhere in this package. Sign with
+	// CreateMerchantSignature512 as usual.
+	//
+	// The exact casing/JSON key Redsys expects for this field in the REST
+	// body (as opposed to the client-side redsysV3.js call, where it's
+	// documented as DS_MERCHANT_IDOPER) was not confirmed against an
+	// official PDF/library reference at the time this field was added -
+	// verify it against Redsys's own integration docs and a sandbox
+	// transaction before relying on it in production.
+	MerchantIdOper string `json:"DS_MERCHANT_IDOPER,omitempty"`
 }
