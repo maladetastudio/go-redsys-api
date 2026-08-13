@@ -22,9 +22,28 @@ func (r *Redsys) CreateMerchantParameters(data *MerchantParametersRequest) strin
 func (r *Redsys) DecodeMerchantParameters(data string) MerchantParametersResponse {
 	merchantParameters := MerchantParametersResponse{}
 	decodedB64, _ := base64.URLEncoding.DecodeString(data)
-	unscaped, _ := url.QueryUnescape(string(decodedB64))
-	json.Unmarshal([]byte(unscaped), &merchantParameters)
+	json.Unmarshal(decodedB64, &merchantParameters)
+	unescapeInPlace(&merchantParameters)
 	return merchantParameters
+}
+
+// unescapeInPlace reverses Redsys's per-field percent-encoding (seen on fields
+// like Ds_Date "09%2F11%2F2015" and Ds_Hour "18%3A03"). It must run per-field,
+// after JSON parsing, not on the whole blob beforehand: some fields legitimately
+// contain a literal "%" that is not a valid escape sequence (e.g. DCC's
+// Ds_Markup_DCC "0.0%"), and unescaping the whole JSON string at once lets one
+// such field corrupt every other field silently.
+func unescapeInPlace(m *MerchantParametersResponse) {
+	fields := []*string{
+		&m.Date, &m.Hour, &m.SecurePayment, &m.CardCountry, &m.Amount,
+		&m.Currency, &m.Order, &m.MerchantCode, &m.Terminal, &m.Response,
+		&m.MerchantData, &m.TransactionType, &m.ConsumerLanguage, &m.AuthorisationCode,
+	}
+	for _, f := range fields {
+		if unescaped, err := url.QueryUnescape(*f); err == nil {
+			*f = unescaped
+		}
+	}
 }
 
 // CreateMerchantSignature generates a merchant signature from MerchantParametersRequest

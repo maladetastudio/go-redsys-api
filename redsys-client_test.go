@@ -66,6 +66,25 @@ func TestMechantEncodingAndDecoding(t *testing.T) {
 	assert.Equal(t, merchantParams, redsys.DecodeMerchantParameters(DS_MERCHANT_PARAMETERS), "Decode Merchant Parameters "+PARAMS)
 }
 
+func TestDecodeMerchantParameters_DCCLiteralPercentDoesNotCorruptOtherFields(t *testing.T) {
+	// Captured from a real Redsys refund response for a foreign-currency
+	// (DCC) card. Ds_Markup_DCC contains a literal "0.0%" - a bare "%" not
+	// followed by two hex digits - which previously made url.QueryUnescape
+	// fail on the whole payload and silently zero out every field, including
+	// Ds_Response (masking a successful refund as a failure).
+	const dccMerchantParameters = "eyJEc19BbW91bnQiOiIzNjAwIiwiRHNfQ3VycmVuY3kiOiI5NzgiLCJEc19PcmRlciI6IjI2MDYwMWJrazdwZyIsIkRzX01lcmNoYW50Q29kZSI6IjM2MzE0NzU1NCIsIkRzX1Rlcm1pbmFsIjoiMiIsIkRzX1Jlc3BvbnNlIjoiMDkwMCIsIkRzX0F1dGhvcmlzYXRpb25Db2RlIjoiMDIxMDc2IiwiRHNfVHJhbnNhY3Rpb25UeXBlIjoiMyIsIkRzX1NlY3VyZVBheW1lbnQiOiIyIiwiRHNfTGFuZ3VhZ2UiOiIxIiwiRHNfTWVyY2hhbnREYXRhIjoiIiwiRHNfQ2FyZF9Db3VudHJ5IjoiODI2IiwiRHNfQ2FyZF9UeXBvbG9neSI6IkNPTlNVTU8iLCJEc19DYXJkX0JyYW5kIjoiMiIsIkRzX1Byb2Nlc3NlZFBheU1ldGhvZCI6Ijc5IiwiRHNfQ3VycmVuY3lfRENDIjoiODI2IiwiRHNfQW1vdW50X0RDQyI6IjMyODIiLCJEc19DdXJyZW5jeU5hbWVfRENDIjoiUE9VTkQgU1RFUkxJTkciLCJEc19NYXJrdXBfRENDIjoiMC4wJSIsIkRzX0V4Y2hhbmdlUmF0ZV9EQ0MiOiIxLjA5Njk1MSJ9"
+
+	redsys := Redsys{}
+	result := redsys.DecodeMerchantParameters(dccMerchantParameters)
+
+	assert.Equal(t, "0900", result.Response, "a successful refund must decode with its real response code")
+	assert.Equal(t, "260601bkk7pg", result.Order)
+	assert.Equal(t, "021076", result.AuthorisationCode)
+	assert.Equal(t, "3", result.TransactionType)
+	assert.Equal(t, "3600", result.Amount)
+	assert.Equal(t, "978", result.Currency)
+}
+
 func TestMerchantSignature(t *testing.T) {
 	const KEY = "Mk9m98IfEblmPfrpsawt7BmxObt98Jev"
 
