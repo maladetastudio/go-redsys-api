@@ -4,12 +4,29 @@ import (
 	"crypto/hmac"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/url"
 )
+
+// SignatureVersionSHA512 is the Ds_SignatureVersion value for the current
+// Redsys signing standard (AES-128-CBC key diversification + HMAC-SHA512),
+// produced by CreateMerchantSignature512 / CreateMerchantSignatureNotif512.
+const SignatureVersionSHA512 = "HMAC_SHA512_V2"
 
 // Redsys Init this struct with your key to operate with the corresponding functions
 type Redsys struct {
 	Key string
+}
+
+// NewRedsys validates key up front and returns an error instead of the panic
+// that a malformed key would otherwise cause later, inside a signing call.
+// It does not change the behavior of the Redsys{Key: ...} literal form.
+func NewRedsys(key string) (*Redsys, error) {
+	if err := validateKey(key); err != nil {
+		return nil, err
+	}
+
+	return &Redsys{Key: key}, nil
 }
 
 // CreateMerchantParameters Return a string corresponding to a marshalled MerchantParametersRequest
@@ -25,6 +42,25 @@ func (r *Redsys) DecodeMerchantParameters(data string) MerchantParametersRespons
 	json.Unmarshal(decodedB64, &merchantParameters)
 	unescapeInPlace(&merchantParameters)
 	return merchantParameters
+}
+
+// TryDecodeMerchantParameters is DecodeMerchantParameters, but surfaces
+// base64/JSON decode failures instead of silently returning a zero-value
+// MerchantParametersResponse.
+func (r *Redsys) TryDecodeMerchantParameters(data string) (MerchantParametersResponse, error) {
+	merchantParameters := MerchantParametersResponse{}
+
+	decodedB64, err := base64.URLEncoding.DecodeString(data)
+	if err != nil {
+		return MerchantParametersResponse{}, fmt.Errorf("redsys: decode base64: %w", err)
+	}
+
+	if err := json.Unmarshal(decodedB64, &merchantParameters); err != nil {
+		return MerchantParametersResponse{}, fmt.Errorf("redsys: unmarshal merchant parameters: %w", err)
+	}
+
+	unescapeInPlace(&merchantParameters)
+	return merchantParameters, nil
 }
 
 // unescapeInPlace reverses Redsys's per-field percent-encoding (seen on fields
@@ -71,4 +107,39 @@ func (r *Redsys) CreateMerchantSignatureNotif(data string) string {
 // MerchantSignatureIsValid checks that two hmacs are equal
 func (r *Redsys) MerchantSignatureIsValid(mac1 string, mac2 string) bool {
 	return hmac.Equal([]byte(mac1), []byte(mac2))
+}
+
+// CreateMerchantSignature512 generates a merchant signature from
+// MerchantParametersRequest using the current Redsys signing standard
+// (AES-128-CBC key diversification + HMAC-SHA512, Ds_SignatureVersion
+// HMAC_SHA512_V2), verified against Redsys's own published worked example.
+// Send it alongside Ds_SignatureVersion: SignatureVersionSHA512.
+func (r *Redsys) CreateMerchantSignature512(data *MerchantParametersRequest) (string, error) {
+	stringMerchantParameters := r.CreateMerchantParameters(data)
+
+	diversifiedKey, err := diversifyKeyAES(r.Key, data.MerchantOrder)
+	if err != nil {
+		return "", fmt.Errorf("redsys: diversify key: %w", err)
+	}
+
+	return mac512(stringMerchantParameters, diversifiedKey), nil
+}
+
+// CreateMerchantSignatureNotif512 generates a signature for a
+// MerchantParametersResponse representing string using the current Redsys
+// signing standard (AES-128-CBC key diversification + HMAC-SHA512), for
+// verifying an inbound notification signed with Ds_SignatureVersion
+// HMAC_SHA512_V2.
+func (r *Redsys) CreateMerchantSignatureNotif512(data string) (string, error) {
+	merchantParametersResponse, err := r.TryDecodeMerchantParameters(data)
+	if err != nil {
+		return "", err
+	}
+
+	diversifiedKey, err := diversifyKeyAES(r.Key, merchantParametersResponse.Order)
+	if err != nil {
+		return "", fmt.Errorf("redsys: diversify key: %w", err)
+	}
+
+	return mac512(data, diversifiedKey), nil
 }

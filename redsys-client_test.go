@@ -1,8 +1,10 @@
 package redsys
 
 import (
-	"github.com/stretchr/testify/assert"
+	"encoding/base64"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func Test3DESEncryptionAndDecryption(t *testing.T) {
@@ -108,4 +110,95 @@ func TestMerchantSignature(t *testing.T) {
 	assert.Equal(t, RESPONSE_DS_SIGNATURE, redsys.CreateMerchantSignatureNotif(RESPONSE_DS_MERCHANT_PARAMETERS), "Create Merchant Signature Notification "+RESPONSE_DS_SIGNATURE)
 
 	assert.Equal(t, bool(true), redsys.MerchantSignatureIsValid(RESPONSE_DS_SIGNATURE, RESPONSE_DS_SIGNATURE), "Create Merchant Signature Notification")
+}
+
+// TestDiversifyKeyAES_RedsysPublishedExample is a known-answer test using the
+// exact worked example published on Redsys's "Firmar una operación" page:
+// https://pagosonline.redsys.es/desarrolladores-inicio/documentacion-operativa/firmar-una-operacion/
+func TestDiversifyKeyAES_RedsysPublishedExample(t *testing.T) {
+	const KEY = "sq7HjrUOBfKmC576ILgskD5srU870gJ7"
+	const ORDER = "1234567890"
+	const EXPECTED_DIVERSIFIED_KEY = "RWt3/IPTzYRMXsQtkiGRKg=="
+
+	diversifiedKey, err := diversifyKeyAES(KEY, ORDER)
+
+	assert.NoError(t, err)
+	assert.Equal(t, EXPECTED_DIVERSIFIED_KEY, diversifiedKey)
+}
+
+// TestMAC512_RedsysPublishedExample is a known-answer test for the
+// HMAC_SHA512_V2 signature, using the same page's full worked example
+// (a REST refund request, using the diversified key from the test above).
+// This intentionally calls mac512 directly with the doc's own literal
+// Ds_MerchantParameters string, rather than going through
+// CreateMerchantSignature512(*MerchantParametersRequest): that function signs
+// whatever CreateMerchantParameters produces, which uses padded base64url
+// (base64.URLEncoding) — Redsys's own example string is unpadded, so the two
+// won't byte-match even with a correct implementation.
+func TestMAC512_RedsysPublishedExample(t *testing.T) {
+	const DIVERSIFIED_KEY = "RWt3/IPTzYRMXsQtkiGRKg=="
+	const MERCHANT_PARAMETERS = "eyJEU19NRVJDSEFOVF9BTU9VTlQiOiI5OTkiLCJEU19NRVJDSEFOVF9PUkRFUiI6IjEyMzQ1Njc4OTAiLCJEU19NRVJDSEFOVF9NRVJDSEFOVENPREUiOiI5OTkwMDg4ODEiLCJEU19NRVJDSEFOVF9DVVJSRU5DWSI6Ijk3OCIsIkRTX01FUkNIQU5UX1RSQU5TQUNUSU9OVFlQRSI6IjAiLCJEU19NRVJDSEFOVF9URVJNSU5BTCI6IjEiLCJEU19NRVJDSEFOVF9NRVJDSEFOVFVSTCI6Imh0dHA6XC9cL3d3dy5wcnVlYmEuY29tXC91cmxOb3RpZmljYWNpb24ucGhwIiwiRFNfTUVSQ0hBTlRfVVJMT0siOiJodHRwOlwvXC93d3cucHJ1ZWJhLmNvbVwvdXJsT0sucGhwIiwiRFNfTUVSQ0hBTlRfVVJMS08iOiJodHRwOlwvXC93d3cucHJ1ZWJhLmNvbVwvdXJsS08ucGhwIn0"
+	const EXPECTED_SIGNATURE = "Vjo02eSWq249IeZZp3R-ArFnGLhKY0OuzDDlx1BuVtZDC2yhczA7_11uZhsYzLZBCMFAz8u8uzGDX3AErHKmmw"
+
+	assert.Equal(t, EXPECTED_SIGNATURE, mac512(MERCHANT_PARAMETERS, DIVERSIFIED_KEY))
+}
+
+// TestCreateMerchantSignature512_IsDeterministicAndErrorFree is a
+// self-consistency check for the full public API (see the KATs above for
+// why this can't be a known-answer test against the doc example directly).
+func TestCreateMerchantSignature512_IsDeterministicAndErrorFree(t *testing.T) {
+	redsys := Redsys{Key: "Mk9m98IfEblmPfrpsawt7BmxObt98Jev"}
+	params := &MerchantParametersRequest{
+		MerchantAmount:          "145",
+		MerchantOrder:           "1",
+		MerchantMerchantCode:    "999008881",
+		MerchantCurrency:        "978",
+		MerchantTransactionType: "0",
+		MerchantTerminal:        "871",
+	}
+
+	signature1, err := redsys.CreateMerchantSignature512(params)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, signature1)
+
+	signature2, err := redsys.CreateMerchantSignature512(params)
+	assert.NoError(t, err)
+	assert.Equal(t, signature1, signature2)
+}
+
+func TestTryDecodeMerchantParameters_ErrorsOnMalformedInput(t *testing.T) {
+	redsys := Redsys{}
+
+	_, err := redsys.TryDecodeMerchantParameters("not-valid-base64!!!")
+	assert.Error(t, err)
+
+	// Valid base64url, but not valid JSON once decoded.
+	notJSON := base64.URLEncoding.EncodeToString([]byte("this is not json"))
+	_, err = redsys.TryDecodeMerchantParameters(notJSON)
+	assert.Error(t, err)
+}
+
+func TestMerchantParametersRequest_XPayFieldsOmittedWhenEmpty(t *testing.T) {
+	redsys := Redsys{}
+	params := &MerchantParametersRequest{
+		MerchantAmount:       "145",
+		MerchantOrder:        "1",
+		MerchantMerchantCode: "999008881",
+	}
+
+	decoded, err := base64.URLEncoding.DecodeString(redsys.CreateMerchantParameters(params))
+	assert.NoError(t, err)
+	assert.NotContains(t, string(decoded), "DS_XPAYDATA")
+	assert.NotContains(t, string(decoded), "DS_XPAYTYPE")
+	assert.NotContains(t, string(decoded), "DS_XPAYORIGEN")
+
+	params.XPayData = "encrypted-token"
+	params.XPayType = "Apple"
+	params.XPayOrigen = "WEB"
+
+	decoded, err = base64.URLEncoding.DecodeString(redsys.CreateMerchantParameters(params))
+	assert.NoError(t, err)
+	assert.Contains(t, string(decoded), `"DS_XPAYDATA":"encrypted-token"`)
+	assert.Contains(t, string(decoded), `"DS_XPAYTYPE":"Apple"`)
+	assert.Contains(t, string(decoded), `"DS_XPAYORIGEN":"WEB"`)
 }
