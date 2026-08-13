@@ -1,6 +1,9 @@
 package redsys
 
-// MerchantParametersResponse struct to read Redsys API responses
+// MerchantParametersResponse holds the decoded fields of a Ds_MerchantParameters
+// payload Redsys sends back — either as a synchronous response (Redirection's
+// return leg, or a REST call's reply) or as an asynchronous online
+// notification. Decode one with DecodeMerchantParameters/TryDecodeMerchantParameters.
 type MerchantParametersResponse struct {
 	Date               string `json:"Ds_Date"`
 	Hour               string `json:"Ds_Hour"`
@@ -47,7 +50,12 @@ type MerchantParametersResponse struct {
 	MerchantIdentifier string `json:"Ds_Merchant_Identifier,omitempty"`
 }
 
-// MerchantParametersRequest struct to construct Redsys API requests
+// MerchantParametersRequest holds the fields a merchant sends to Redsys.
+// CreateMerchantParameters marshals it to JSON and base64url-encodes it into
+// Ds_MerchantParameters; CreateMerchantSignature512 (or the legacy
+// CreateMerchantSignature) signs the result into Ds_Signature. Which fields
+// matter depends on the integration type and operation - see the package
+// doc comment (doc.go) for a flow-by-flow breakdown.
 type MerchantParametersRequest struct {
 	// Optional fields are tagged with omitempty
 	MerchantMerchantCode       string `json:"Ds_Merchant_MerchantCode"`
