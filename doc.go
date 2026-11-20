@@ -13,9 +13,10 @@
 // + HMAC-SHA512, verified against Redsys's own published worked example).
 // [Redsys.CreateMerchantSignature] implements the legacy "HMAC_SHA256_V1"
 // scheme (3DES key diversification + HMAC-SHA256), kept for merchants not yet
-// migrated. Ds_MerchantParameters itself — [Redsys.CreateMerchantParameters],
-// a base64url-encoded JSON blob — is identical either way; only the signing
-// step differs.
+// migrated. Ds_MerchantParameters is the same base64url-encoded JSON either
+// way, but HMAC_SHA512_V2 requires it unpadded: use
+// [Redsys.CreateMerchantParameters512] with [Redsys.CreateMerchantSignature512]
+// and [Redsys.CreateMerchantParameters] with [Redsys.CreateMerchantSignature].
 //
 //	r := redsys.Redsys{Key: merchantTerminalKey} // base64 key from Redsys's Admin Portal
 //	params := &redsys.MerchantParametersRequest{
@@ -28,7 +29,7 @@
 //		MerchantUrlOK:           "https://example.com/pay/ok",
 //		MerchantUrlKO:           "https://example.com/pay/ko",
 //	}
-//	dsMerchantParameters := r.CreateMerchantParameters(params)
+//	dsMerchantParameters := r.CreateMerchantParameters512(params)
 //	dsSignature, err := r.CreateMerchantSignature512(params)
 //
 // # Integration types

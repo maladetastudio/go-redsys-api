@@ -137,8 +137,8 @@ func TestDiversifyKeyAES_RedsysPublishedExample(t *testing.T) {
 // This intentionally calls mac512 directly with the doc's own literal
 // Ds_MerchantParameters string, rather than going through
 // CreateMerchantSignature512(*MerchantParametersRequest): that function signs
-// whatever CreateMerchantParameters produces, which uses padded base64url
-// (base64.URLEncoding) — Redsys's own example string is unpadded, so the two
+// what CreateMerchantParameters512 produces from Go's JSON encoding, which
+// doesn't escape "/" like the PHP that produced Redsys's example, so the two
 // won't byte-match even with a correct implementation.
 func TestMAC512_RedsysPublishedExample(t *testing.T) {
 	const DIVERSIFIED_KEY = "RWt3/IPTzYRMXsQtkiGRKg=="
@@ -385,4 +385,41 @@ func TestDecodeMerchantParameters_AcceptsUnpaddedStandardBase64(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, "k9k>9d?ai", result.Order)
+}
+
+// TestCreateMerchantSignature512_SignsUnpaddedParameters covers HMAC_SHA512_V2
+// requests: Redsys rejects padded Ds_MerchantParameters with SIS0430, so the
+// parameters must be unpadded base64url and the signature must cover exactly
+// that string. Amounts of a different length change the JSON length, so this
+// checks several, some of which would need padding.
+func TestCreateMerchantSignature512_SignsUnpaddedParameters(t *testing.T) {
+	redsys := Redsys{Key: "sq7HjrUOBfKmC576ILgskD5srU870gJ7"}
+	neededPadding := false
+
+	for _, amount := range []string{"500", "1000", "10000", "31000"} {
+		params := &MerchantParametersRequest{
+			MerchantAmount:          amount,
+			MerchantOrder:           "2611209l8v2g",
+			MerchantMerchantCode:    "999008881",
+			MerchantCurrency:        "978",
+			MerchantTransactionType: "0",
+			MerchantTerminal:        "1",
+		}
+
+		merchantParameters := redsys.CreateMerchantParameters512(params)
+		assert.NotContains(t, merchantParameters, "=", amount)
+
+		padded := redsys.CreateMerchantParameters(params)
+		neededPadding = neededPadding || strings.HasSuffix(padded, "=")
+		assert.Equal(t, strings.TrimRight(padded, "="), merchantParameters, amount)
+
+		diversifiedKey, err := diversifyKeyAES(redsys.Key, params.MerchantOrder)
+		assert.NoError(t, err)
+
+		signature, err := redsys.CreateMerchantSignature512(params)
+		assert.NoError(t, err)
+		assert.Equal(t, mac512(merchantParameters, diversifiedKey), signature, amount)
+	}
+
+	assert.True(t, neededPadding, "at least one fixture must need padding, or this test proves nothing")
 }
