@@ -52,6 +52,17 @@ func (r *Redsys) CreateMerchantParameters(data *MerchantParametersRequest) strin
 	return base64.URLEncoding.EncodeToString(merchantMarshalledParams)
 }
 
+// CreateMerchantParameters512 is CreateMerchantParameters for HMAC_SHA512_V2:
+// the same JSON, base64url-encoded without padding, as in Redsys's own
+// published example. Redsys rejects a padded HMAC_SHA512_V2 request with
+// SIS0430 ("Error en datos enviados"), so every request whose JSON length was
+// not a multiple of 3 failed before reaching the payment page. Send it with
+// the signature from CreateMerchantSignature512, which signs this string.
+func (r *Redsys) CreateMerchantParameters512(data *MerchantParametersRequest) string {
+	merchantMarshalledParams, _ := json.Marshal(data)
+	return base64.RawURLEncoding.EncodeToString(merchantMarshalledParams)
+}
+
 // DecodeMerchantParameters decodes a Ds_MerchantParameters payload (from a
 // response or an online notification) into a MerchantParametersResponse.
 // Decode/unmarshal errors are swallowed, silently returning a zero-value
@@ -170,9 +181,10 @@ func (r *Redsys) MerchantSignatureIsValid(mac1 string, mac2 string) bool {
 // MerchantParametersRequest using the current Redsys signing standard
 // (AES-128-CBC key diversification + HMAC-SHA512, Ds_SignatureVersion
 // HMAC_SHA512_V2), verified against Redsys's own published worked example.
-// Send it alongside Ds_SignatureVersion: SignatureVersionSHA512.
+// Send it alongside Ds_SignatureVersion: SignatureVersionSHA512 and the
+// Ds_MerchantParameters from CreateMerchantParameters512, the string it signs.
 func (r *Redsys) CreateMerchantSignature512(data *MerchantParametersRequest) (string, error) {
-	stringMerchantParameters := r.CreateMerchantParameters(data)
+	stringMerchantParameters := r.CreateMerchantParameters512(data)
 
 	diversifiedKey, err := diversifyKeyAES(r.Key, data.MerchantOrder)
 	if err != nil {

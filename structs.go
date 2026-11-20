@@ -51,7 +51,8 @@ type MerchantParametersResponse struct {
 }
 
 // MerchantParametersRequest holds the fields a merchant sends to Redsys.
-// CreateMerchantParameters marshals it to JSON and base64url-encodes it into
+// CreateMerchantParameters512 (or CreateMerchantParameters for the legacy
+// scheme) marshals it to JSON and base64url-encodes it into
 // Ds_MerchantParameters; CreateMerchantSignature512 (or the legacy
 // CreateMerchantSignature) signs the result into Ds_Signature. Which fields
 // matter depends on the integration type and operation - see the package
