@@ -1,0 +1,13 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "ignorePaths": ["**/.agents/**"],
+  "packageRules": [
+    {
+      "description": "Library: keep the go directive (minimum supported Go) manual; only bump dependencies",
+      "enabled": false,
+      "matchDepNames": ["go"],
+      "matchManagers": ["gomod"]
+    }
+  ]
+}
